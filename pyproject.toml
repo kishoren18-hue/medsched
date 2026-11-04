@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "medsched"
+version = "0.1.0"
+description = "Turn pharmacy label directions into a large-print daily schedule, and refuse to guess when a label is unclear"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Kishore Nuthalapati" }]
+requires-python = ">=3.9"
+dependencies = []
+keywords = ["medication", "older adults", "caregiving", "abstention", "patient safety", "ocr"]
+
+[project.optional-dependencies]
+ocr = ["pytesseract>=0.3", "Pillow>=9"]
+dev = ["pytest>=7", "pytesseract>=0.3", "Pillow>=9"]
+
+[project.scripts]
+medsched = "medsched.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,5 +1,7 @@
 # medsched
 
+[![tests](https://github.com/kishoren18-hue/medsched/actions/workflows/ci.yml/badge.svg)](https://github.com/kishoren18-hue/medsched/actions/workflows/ci.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Turns pharmacy labels into a large-print daily medicine schedule, and refuses to guess when a label is unclear.**
 
 Older adults on several medications often manage them from a pile of bottles with small print. Tools that "read" labels for them have an obvious failure mode: a confident wrong answer. Misreading QD (once daily) as QID (four times daily), or 1.0 mg as 10 mg, are classic, well-documented medication errors.

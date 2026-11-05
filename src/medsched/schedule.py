@@ -171,6 +171,8 @@ Always follow your prescription label and check this schedule with your pharmaci
 
 
 def takes_on(med: Med, day: date, start: date) -> bool:
+    if med.kind == "interval" and med.duration_days and med.duration_days >= 3:
+    return (day - start).days % med.duration_days == 0
     """Whether a scheduled med is due on a given date."""
     if med.kind == "weekdays" and med.weekdays:
         return day.weekday() in med.weekdays

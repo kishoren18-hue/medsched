@@ -38,6 +38,7 @@ FREQUENCIES = [
     (r"\bevery 8 hours\b", "every 8 hours", 3, "interval"),
     (r"\bevery 12 hours\b", "every 12 hours", 2, "interval"),
     (r"\bevery 24 hours\b", "once a day", 1, "daily"),
+    (r"\bevery 72 hours\b", "every 72 hours", 1/3, "interval"),
     (r"\b(?:at bedtime|every night at bedtime|nightly|before bed)\b", "at bedtime", 1, "bedtime"),
     (r"\b(?:every morning|in the morning|each morning)\b", "every morning", 1, "morning"),
     (r"\b(?:every evening|in the evening|each evening)\b", "every evening", 1, "evening"),

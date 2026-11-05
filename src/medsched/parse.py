@@ -66,6 +66,8 @@ class Med:
     with_food: bool | None = None
     duration_days: int | None = None
     max_per_day: float | None = None
+    weekdays: list[int] | None = None    # 0 = Monday ... 6 = Sunday, for "every Monday and Thursday"
+    time_hint: str | None = None
     decision: str = "schedule"           # schedule | as-needed | ask
     reasons: list[str] = field(default_factory=list)
     confidence: float = 1.0              # lowest field confidence (OCR confidence feeds in)
@@ -77,6 +79,19 @@ class Med:
 
     def as_dict(self):
         return asdict(self)
+
+
+_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_DAY_INDEX = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+
+def _weekdays(low: str) -> list[int]:
+    """Weekdays named in the directions ('every Monday and Thursday', 'on Sundays')."""
+    # full day names only, so words like "sat" or "wed" in other senses never count
+    days = set()
+    for m in re.finditer(r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b", low):
+        days.add(_DAY_INDEX[m.group(1)[:3]])
+    return sorted(days)
 
 
 def _num(tok: str) -> float | None:
@@ -146,10 +161,22 @@ def parse_label(text: str, ocr_confidence: float | None = None) -> Med:
     elif len(labels) > 1:
         specific = [f for f in found if f[0] != "once a day"]  # 'daily' inside 'twice daily' etc.
         found = specific if len({f[0] for f in specific}) == 1 else found
-    if len({f[0] for f in found}) > 1:
+    days = _weekdays(low)
+    if days:
+        multi = [f for f in found if f[0] not in ("once a week", "once a day") and (f[1] or 1) > 1]
+        if multi:
+            med.ask("the label combines specific weekdays with more than one dose a day; confirm the schedule")
+        else:
+            names = ", ".join(_DAY_NAMES[d] for d in days)
+            med.frequency, med.times_per_day, med.kind, med.weekdays = f"every {names}", 1, "weekdays", days
+            if any(f[0] == "at bedtime" for f in found):
+                med.time_hint = "bedtime"
+    elif len({f[0] for f in found}) > 1:
         med.ask("the label gives more than one frequency: " + ", ".join(sorted({f[0] for f in found})))
     elif found:
         med.frequency, med.times_per_day, med.kind = found[0]
+    if med.kind == "daily" and med.times_per_day == 1 and re.search(r"\b(?:at noon|midday|with lunch|at lunch)\b", low):
+        med.kind, med.frequency = "noon", "once a day at midday"
 
     prn = re.search(r"\b(?:as needed|if needed|when needed|prn)\b(?:\s+for\s+([a-z ]+?))?(?:[.,;]|$| do not| not to)", low)
     if prn:

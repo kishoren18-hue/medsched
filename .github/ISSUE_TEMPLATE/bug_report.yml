@@ -1,0 +1,36 @@
+name: Bug report
+description: Something doesn't work as documented
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Include the command or code you ran and the full output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal example
+      description: The smallest input that shows the problem.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      placeholder: "e.g. 0.2.0, Python 3.12, macOS 15"
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety impact
+      options:
+        - label: This could cause a wrong result to be shown with confidence (for example a missed or wrong medication detail)
+        - label: My example uses synthetic data only, not real patient information
+          required: true

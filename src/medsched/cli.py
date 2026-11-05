@@ -13,10 +13,11 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from pathlib import Path
 
 from .parse import parse_label
-from .schedule import Routine, build_plan, label, to_html, to_ics
+from .schedule import Routine, build_plan, label, to_html, to_ics, to_weekly_html
 
 
 def main(argv=None) -> int:
@@ -26,6 +27,8 @@ def main(argv=None) -> int:
     ap.add_argument("--image", nargs="*", default=[], help="label photos to OCR (needs medsched[ocr])")
     ap.add_argument("--html", help="write a printable schedule here")
     ap.add_argument("--ics", help="write a calendar file here")
+    ap.add_argument("--week", help="write a printable 7-day chart here (for caregivers and pill organizers)")
+    ap.add_argument("--start", help="first day for the calendar and weekly chart, YYYY-MM-DD (default today)")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--wake", default="08:00")
     ap.add_argument("--lunch", default="12:30")
@@ -64,8 +67,11 @@ def main(argv=None) -> int:
             print(f"ASK PHARMACIST  {m.drug or m.raw[:40]}: {'; '.join(m.reasons)}")
     if a.html:
         Path(a.html).write_text(to_html(plan))
+    start = date.fromisoformat(a.start) if a.start else None
     if a.ics:
-        Path(a.ics).write_text(to_ics(plan))
+        Path(a.ics).write_text(to_ics(plan, start))
+    if a.week:
+        Path(a.week).write_text(to_weekly_html(plan, start))
     return 0
 
 

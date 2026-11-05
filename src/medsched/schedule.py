@@ -11,6 +11,9 @@ from datetime import date, datetime, timedelta, timezone
 
 from .parse import Med
 
+DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+ICS_DAYS = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"]
+
 
 @dataclass
 class Routine:
@@ -31,8 +34,12 @@ def _fmt(dt: datetime) -> str:
 def dose_times(med: Med, r: Routine) -> list[str]:
     """Clock times for one scheduled med, anchored to the person's routine."""
     n, kind = med.times_per_day, med.kind
-    if kind == "bedtime":
+    if kind == "bedtime" or med.time_hint == "bedtime":
         return [r.bed]
+    if kind == "noon":
+        return [r.lunch]
+    if kind == "weekdays":
+        return [r.wake]
     if kind == "evening":
         return [r.dinner]
     if kind == "interval" and n:
@@ -79,7 +86,7 @@ def build_plan(meds: list[Med], routine: Routine | None = None) -> Plan:
     for m in meds:
         if m.drug:
             names[m.drug.lower()].append(m)
-    for name, ms in names.items():
+    for _name, ms in names.items():
         if len(ms) > 1:
             warnings.append(f"{ms[0].drug} appears on {len(ms)} labels. Taking two at once could double the dose; "
                             "ask the pharmacist whether both are current.")
@@ -89,6 +96,8 @@ def build_plan(meds: list[Med], routine: Routine | None = None) -> Plan:
         if m.decision != "schedule":
             continue
         note = {"alt": " (every other day)", "weekly": " (once a week)"}.get(m.kind or "", "")
+        if m.kind == "weekdays" and m.weekdays:
+            note = " (" + ", ".join(DAY_SHORT[d] for d in m.weekdays) + " only)"
         for t in dose_times(m, r):
             by_time[t].append((m, label(m) + note))
     return Plan(dict(sorted(by_time.items())), [m for m in meds if m.decision == "as-needed"],
@@ -103,7 +112,11 @@ def to_ics(plan: Plan, start: date | None = None) -> str:
         for m, text in items:
             hh, mm = t.split(":")
             rule = "FREQ=DAILY"
-            if m.kind == "alt":
+            first = start
+            if m.kind == "weekdays" and m.weekdays:
+                rule = "FREQ=WEEKLY;BYDAY=" + ",".join(ICS_DAYS[d] for d in m.weekdays)
+                first = next(start + timedelta(days=k) for k in range(7) if (start + timedelta(days=k)).weekday() in m.weekdays)
+            elif m.kind == "alt":
                 rule = "FREQ=DAILY;INTERVAL=2"
             elif m.kind == "weekly":
                 rule = "FREQ=WEEKLY"
@@ -112,7 +125,7 @@ def to_ics(plan: Plan, start: date | None = None) -> str:
                 rule += f";COUNT={count}"
             summary = re.sub(r"[,;\\]", " ", text)
             lines += ["BEGIN:VEVENT", f"UID:{uuid.uuid4()}@medsched", f"DTSTAMP:{stamp}",
-                      f"DTSTART:{start.strftime('%Y%m%d')}T{hh}{mm}00", "DURATION:PT10M", f"RRULE:{rule}",
+                      f"DTSTART:{first.strftime('%Y%m%d')}T{hh}{mm}00", "DURATION:PT10M", f"RRULE:{rule}",
                       f"SUMMARY:{summary}", "BEGIN:VALARM", "ACTION:DISPLAY", f"DESCRIPTION:{summary}",
                       "TRIGGER:PT0M", "END:VALARM", "END:VEVENT"]
     lines.append("END:VCALENDAR")
@@ -154,4 +167,68 @@ td.time{{width:130px;font-weight:700;font-size:24px}} .item{{margin:4px 0}}
 {f'<h2>Ask your pharmacist before using these</h2><ul class="ask">{ask}</ul>' if ask else ''}
 <p class="foot">Made with medsched, an organizing aid. It is not medical advice and can make mistakes.
 Always follow your prescription label and check this schedule with your pharmacist or doctor.</p>
+</body></html>"""
+
+
+def takes_on(med: Med, day: date, start: date) -> bool:
+    """Whether a scheduled med is due on a given date."""
+    if med.kind == "weekdays" and med.weekdays:
+        return day.weekday() in med.weekdays
+    if med.kind == "alt":
+        return (day - start).days % 2 == 0
+    if med.kind == "weekly":
+        return (day - start).days % 7 == 0
+    if med.duration_days:
+        return (day - start).days < med.duration_days
+    return True
+
+
+def to_weekly_html(plan: Plan, start: date | None = None, title: str = "Weekly medicine chart") -> str:
+    """A printable 7-day grid (rows = times, columns = days) with a tick box per dose.
+
+    Built for caregivers and pill-organizer filling: every dose for the week is
+    visible at once, including every-other-day and specific-weekday medicines.
+    """
+    start = start or date.today()
+    days = [start + timedelta(days=k) for k in range(7)]
+
+    def clock(t):
+        h, m = map(int, t.split(":"))
+        return f"{(h % 12) or 12}:{m:02d} {'AM' if h < 12 else 'PM'}"
+
+    head = "".join(f"<th>{DAY_SHORT[d.weekday()]}<br><span>{d.strftime('%b %d')}</span></th>" for d in days)
+    body = []
+    for t, items in plan.by_time.items():
+        cells = []
+        for d in days:
+            due = [text for m, text in items if takes_on(m, d, start)]
+            cells.append("<td>" + "".join(
+                f'<div class="dose"><span class="box"></span>{html.escape(x.split(" · ")[0])}</div>' for x in due)
+                + "</td>")
+        body.append(f'<tr><th class="time">{clock(t)}</th>{"".join(cells)}</tr>')
+    texts = list(dict.fromkeys(text for items in plan.by_time.values() for _, text in items))
+    legend = "".join(f"<li>{html.escape(text)}</li>" for text in texts)
+    ask = "".join(f"<li><b>{html.escape((m.drug or m.raw[:40]) + (' ' + m.strength if m.strength else ''))}</b>: "
+                  f"{html.escape('; '.join(m.reasons))}</li>" for m in plan.ask)
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>{html.escape(title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+@page{{size:landscape;margin:12mm}}
+body{{font:16px/1.4 system-ui,sans-serif;color:#111;background:#fff;margin:0 auto;max-width:1100px;padding:20px 16px}}
+h1{{font-size:26px;margin:0 0 4px}} .sub{{color:#444;margin-bottom:14px}}
+table{{width:100%;border-collapse:collapse;table-layout:fixed}}
+th,td{{border:2px solid #222;padding:6px;vertical-align:top}} thead th{{background:#f2f2f2;font-size:17px}}
+thead th span{{font-weight:400;font-size:13px;color:#444}} th.time{{width:96px;background:#f8f8f8;font-size:17px}}
+.dose{{margin:3px 0;font-size:14px}} .box{{display:inline-block;width:15px;height:15px;border:2px solid #222;
+border-radius:3px;margin-right:6px;vertical-align:-2px}}
+.legend{{columns:2;font-size:14px}} .ask{{background:#fff4e5;border:2px solid #d48a00;border-radius:8px;padding:6px 14px 6px 34px}}
+.foot{{font-size:12px;color:#444;margin-top:16px}}
+.wrap{{overflow-x:auto}}
+</style></head><body>
+<h1>{html.escape(title)}</h1><div class="sub">Week of {days[0].strftime('%B %d, %Y')}. Tick each box when the dose is taken.</div>
+<div class="wrap"><table><thead><tr><th class="time">Time</th>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div>
+<h3>Details</h3><ul class="legend">{legend}</ul>
+{f'<h3>Not on this chart: ask your pharmacist</h3><ul class="ask">{ask}</ul>' if ask else ''}
+<p class="foot">Made with medsched, an organizing aid. It is not medical advice and can make mistakes.
+Follow the prescription label and check this chart with a pharmacist or doctor.</p>
 </body></html>"""

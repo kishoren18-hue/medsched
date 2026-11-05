@@ -95,3 +95,44 @@ def test_ocr_sharp_vs_blurry():
     blurry = parse_label(*read_label(str(EX / "label_blurry.png")))
     assert sharp.decision == "schedule" and sharp.drug == "Amlodipine"
     assert blurry.decision == "ask"
+
+
+def test_specific_weekdays():
+    m = parse_label("Methotrexate 2.5 mg\nTake 4 tablets by mouth every Monday")
+    assert m.decision == "schedule" and m.kind == "weekdays" and m.weekdays == [0]
+    m = parse_label("Drugname 5 mg\nTake 1 tablet every Monday and Thursday at bedtime")
+    assert m.weekdays == [0, 3] and m.time_hint == "bedtime"
+    m = parse_label("Drugname 5 mg\nTake 1 tablet twice daily on Mondays")
+    assert m.decision == "ask"
+
+
+def test_midday_timing():
+    m = parse_label("Drugname 5 mg\nTake 1 tablet daily with lunch")
+    plan = build_plan([m], Routine(lunch="13:00"))
+    assert list(plan.by_time) == ["13:00"]
+
+
+def test_weekly_chart_and_ics_byday():
+    from datetime import date
+
+    from medsched import takes_on, to_weekly_html
+
+    weekly = parse_label("Alendronate 70 mg\nTake 1 tablet once a week on Sunday morning")
+    daily = parse_label("Lisinopril 10 mg\nTake 1 tablet daily")
+    alt = parse_label("Furosemide 20 mg\nTake 1 tablet every other day")
+    plan = build_plan([weekly, daily, alt])
+    start = date(2026, 11, 2)  # a Monday
+    days = [date(2026, 11, 2 + k) for k in range(7)]
+    assert [takes_on(weekly, d, start) for d in days] == [False] * 6 + [True]
+    assert [takes_on(alt, d, start) for d in days] == [True, False] * 3 + [True]
+    page = to_weekly_html(plan, start)
+    assert page.count("Lisinopril") >= 7 and page.count("Alendronate") == 2  # one cell + legend
+    ics = to_ics(plan, start)
+    assert "RRULE:FREQ=WEEKLY;BYDAY=SU" in ics and "DTSTART:20261108T" in ics
+    assert "RRULE:FREQ=DAILY;INTERVAL=2" in ics
+
+
+def test_cli_week(tmp_path):
+    out = tmp_path / "week.html"
+    assert main([str(EX / "labels.txt"), "--week", str(out), "--start", "2026-11-02"]) == 0
+    assert "Weekly medicine chart" in out.read_text()

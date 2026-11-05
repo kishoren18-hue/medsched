@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "medsched: abstaining medication schedule builder"
+abstract: "Turns pharmacy label directions into a large-print daily schedule and refuses to guess when a label is ambiguous."
+type: software
+authors:
+  - family-names: Nuthalapati
+    given-names: Kishore
+repository-code: "https://github.com/kishoren18-hue/medsched"
+license: MIT
+version: 0.2.0
+date-released: "2026-11-04"
+keywords:
+  - medication management
+  - older adults
+  - abstention
+  - patient safety
+  - OCR

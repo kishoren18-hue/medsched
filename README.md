@@ -10,7 +10,7 @@ medsched is designed around abstention. Anything it can parse cleanly goes on th
 
 ![Example printable schedule](docs/example_schedule.png)
 
-*Generated from `examples/labels.txt` (made-up labels). Five of the ten labels were deliberately written to be unsafe to auto-schedule.*
+*Generated from `examples/labels.txt` (made-up labels). Five of the eleven labels were deliberately written to be unsafe to auto-schedule.*
 
 ## What makes it abstain
 
@@ -48,8 +48,15 @@ ASK PHARMACIST  Warfarin: label uses an error-prone abbreviation: 'QD' (once dai
 ```
 
 * `--html` writes a printable page with tick boxes in large type.
+* `--week` writes a printable 7-day chart for caregivers and for filling a weekly pill organizer.
 * `--ics` writes calendar reminders that import into Google Calendar, Apple Calendar or Outlook.
-* `--wake --lunch --dinner --bed` anchor dose times to the person's actual routine.
+* `--wake --lunch --dinner --bed` anchor dose times to the person's actual routine; `--start` sets the first day.
+
+### Weekly chart for caregivers
+
+![Weekly chart](docs/example_week.png)
+
+Every dose for the week on one landscape page. Medicines taken on specific days ("once a week on Sunday", "every Monday and Thursday") or every other day appear only on the days they're due, and the calendar file uses the matching weekly repeat rule.
 
 ### From label photos
 
@@ -83,6 +90,10 @@ I've volunteered at a senior living community for three years, and keeping track
 pip install -e ".[dev]"
 pytest -q        # 26 tests (the OCR test skips if tesseract isn't installed)
 ```
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and ideas to start with, [CHANGELOG.md](CHANGELOG.md) for what's new, and [SECURITY.md](SECURITY.md) to report a problem privately. If you use this in research, GitHub's "Cite this repository" button (from [CITATION.cff](CITATION.cff)) gives a ready-made citation.
 
 ## License
 

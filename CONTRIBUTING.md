@@ -30,6 +30,8 @@ Good tests matter more than clever code here. A bug fix should come with a test 
 
 ## Ideas to start with
 
+Issues labeled [good first issue](https://github.com/kishoren18-hue/medsched/labels/good%20first%20issue) are scoped for a first pull request, with the files to touch and what "done" means. Other ideas:
+
 * Spanish label directions
 * Handle "every 72 hours" patches
 * Accessibility review of the printable pages
